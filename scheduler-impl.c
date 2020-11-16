@@ -70,7 +70,7 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
         ts[i].allotment_time = ProcessQueue[i]->allotment_time;
     }
     
-    int proc_completed = 0, p_time = 0;
+    int proc_completed = 0, p_time = 0, period_at = 1;
     int time = 1;
     bool hold_slice = false;
     int hold_by = 0;
@@ -89,40 +89,24 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                     q = i;
                 }
             }
-            
-            //if (Length(ProcessQueue[q]) > 0) {
                 
-                Process front = FrontQueue(ProcessQueue[q]);
+            Process front;
+            
+            if(!IsEmptyQueue(ProcessQueue[q])){front = FrontQueue(ProcessQueue[q]);}
 
                 int index = atIndex(front, proc_num, rt);
                 
-                if(rt[index].rt < ts[q].ts){
+                if(rt[index].rt < ts[q].ts && period_at * period >= ts[q].ts + time){
                     hold_by = rt[index].rt;
-                }else if(period < ts[q].ts + time){
-                    hold_by = period - time;
+                }else if(period * period_at < ts[q].ts + time){
+                    hold_by = period - time + 1;
+                    printf("Hold by = %d\n\n\n\n", time);
                     p_time = hold_by;
                 }else{
                     hold_by = ts[q].ts;
                 }
                 hold_slice = true;
-            //}
         }
-            
-            // empty, empty, empty -> q3
-            // empty, !empty empty -> q2
-            // empty, empty, !empty -> q1
-        
-//        printf("Time = %d\n", time);
-//
-//
-//        printf("Q3: ");
-//        QueuePrint(ProcessQueue[2]);
-//        printf("\nQ2: ");
-//        QueuePrint(ProcessQueue[1]);
-//        printf("\nQ1: ");
-//        QueuePrint(ProcessQueue[0]);
-//        printf("\n");
-        
         
         for(int i = 0; i < proc_num; i++){
             if(time == proc[i].arrival_time){
@@ -131,7 +115,6 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
             }
         }
 
-        
         if(hold_slice == true){
             hold_by -= 1;
         }
@@ -153,10 +136,14 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                 if(temp.process_id == rt[i].pid){ toExecute = i; break;}
             }
             
-            if(rt[toExecute].rt < ts[q].ts){
+            if(time == period * period_at){
+                slice_corr = ts[q].ts - p_time;
+                rt[toExecute].rt -= p_time;
+            }else if(rt[toExecute].rt < ts[q].ts && time != period * period_at){
                 slice_corr = ts[q].ts - rt[toExecute].rt;
                 rt[toExecute].rt = 0;
-            }else{ rt[toExecute].rt -= ts[q].ts;}
+            }
+            else{ rt[toExecute].rt -= ts[q].ts;}
             
             rt[toExecute].slice += 1;
             
@@ -195,7 +182,7 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
             }
         }
       
-        if(time == 300){
+        if(time == period){
             // dequeue from all queue to a temp queue and sort by arrival time and set it as queue 2
             
             for(int i = 0; i < queue_num - 1; i++){
@@ -210,19 +197,7 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
             
             QueuePrint(ProcessQueue[queue_num - 1]);
             SortP(ProcessQueue[queue_num - 1], proc_num - proc_completed);
-            printf("\n--- After sort ---");
-            printf("Queue 2: ");
-            QueuePrint(ProcessQueue[queue_num - 1]);
-            printf("\nQueue 1:");
-            QueuePrint(ProcessQueue[queue_num - 2]);
-            printf("\nQueue 0:");
-            QueuePrint(ProcessQueue[queue_num - 3]);
-            
-            // remove the break
-            // Problem occurs after period == time
-            // TODO: fix this shit
-            break;
-            
+            period_at += 1;
         }
         
         if(proc_completed == proc_num){
