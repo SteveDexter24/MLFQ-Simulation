@@ -28,24 +28,29 @@ void s(Process *xp, Process *yp);
 void SortP(LinkedQueue *queue, int proc_num);
 
 void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queue_num, int period){
-    printf("Process number: %d\n", proc_num);
+    printf("Process number: %d\n\n", proc_num);
     
     
     
     // remaining time array
     remainingTime *rt = (remainingTime *)malloc(proc_num * sizeof(remainingTime));
     
+    
     // slice offset, if the remaining time is less than the slice itself
     int* sliceOffset = (int*)malloc(proc_num * sizeof(int));
     
     for (int i = 0;i < proc_num; i++) {
-        printf("%d %d %d\n", proc[i].process_id, proc[i].arrival_time, proc[i].execution_time);
+        //printf("%d %d %d\n", proc[i].process_id, proc[i].arrival_time, proc[i].execution_time);
         rt[i].rt = 0;
         rt[i].slice = 0;
         rt[i].pid = proc[i].process_id;
         sliceOffset[i] = 0;
-        
     }
+    
+    for (int i = 0; i < proc_num; i++) {
+        printf("%d ", rt[i].pid);
+    }
+    printf("\n\n");
 
     printf("\nQueue number: %d\n", queue_num);
     printf("Period: %d\n", period);
@@ -65,69 +70,47 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
         ts[i].allotment_time = ProcessQueue[i]->allotment_time;
     }
     
-    /*
-       Test outprint function, it will output "Time_slot:1-2, pid:3, arrival-time:4, remaining_time:5" to output.loc file.
-    */
-    
-    /*
-     
-     Process number: 5
-     0: 36 10 10
-     1: 1023 10 160
-     2: 123 60 90
-     3: 13 70 100
-     4: 12 80 30
-
-     Queue number: 3
-     Period: 300
-     0 60 120
-     1 40 80
-     2 10 30
-     
-     */
-    int proc_completed = 0;
+    int proc_completed = 0, p_time = 0;
     int time = 1;
     bool hold_slice = false;
     int hold_by = 0;
-    int q;
+    int q = queue_num - 1;
     
     do {
+        
+        int slice_corr = 0;
   
         if (hold_slice == false) {
             
-            if(IsEmptyQueue(ProcessQueue[2]) && !IsEmptyQueue(ProcessQueue[1])){
-                q = 1;
-                hold_by = ts[1].ts;
-                hold_slice = true;
-
+            q = queue_num - 1;
+            // works
+            for(int i = 0; i < queue_num; i++){
+                if(!IsEmptyQueue(ProcessQueue[i])){
+                    q = i;
+                }
             }
-            else if(IsEmptyQueue(ProcessQueue[2]) && IsEmptyQueue(ProcessQueue[1]) && !IsEmptyQueue(ProcessQueue[0])){
-                q = 0;
-                hold_by = ts[0].ts;
-                hold_slice = true;
-            }
-            else {
-                hold_by = ts[2].ts;
-                hold_slice = true;
-                q = 2;
-            }
-            //int count = 0;
             
-//            for(int i = queue_num - 1; i >= 0; i--){
-//                if (IsEmptyQueue(ProcessQueue[i])) {
-//
-//                }else{
-//                    q = i - 1;
-//                    hold_by = ts[q].ts;
-//                    hold_slice = true;
-//                    break;
-//                }
-//            }
+            //if (Length(ProcessQueue[q]) > 0) {
+                
+                Process front = FrontQueue(ProcessQueue[q]);
+
+                int index = atIndex(front, proc_num, rt);
+                
+                if(rt[index].rt < ts[q].ts){
+                    hold_by = rt[index].rt;
+                }else if(period < ts[q].ts + time){
+                    hold_by = period - time;
+                    p_time = hold_by;
+                }else{
+                    hold_by = ts[q].ts;
+                }
+                hold_slice = true;
+            //}
         }
-        
-       
-        // don't deduct by time slice, deduct by time
-        // if the time remaining is ==
+            
+            // empty, empty, empty -> q3
+            // empty, !empty empty -> q2
+            // empty, empty, !empty -> q1
         
 //        printf("Time = %d\n", time);
 //
@@ -139,18 +122,15 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
 //        printf("\nQ1: ");
 //        QueuePrint(ProcessQueue[0]);
 //        printf("\n");
-
+        
         
         for(int i = 0; i < proc_num; i++){
             if(time == proc[i].arrival_time){
-                ProcessQueue[2] = EnQueue(ProcessQueue[2], proc[i]);
+                ProcessQueue[queue_num - 1] = EnQueue(ProcessQueue[queue_num - 1], proc[i]);
                 rt[i].rt = proc[i].execution_time;
-                sliceOffset[i] = time % ts[2].ts;
             }
         }
-        
-        Process p = FrontQueue(ProcessQueue[q]);
-        
+
         
         if(hold_slice == true){
             hold_by -= 1;
@@ -161,7 +141,7 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
         }
         
         // execute time slice
-        if(time > 0 /*&& time % ts[q].ts == sliceOffset[h]*/ && hold_slice == false){
+        if(time > 0 && hold_slice == false){
             if(time == ts[q].ts){
                 continue;
             }
@@ -173,8 +153,11 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                 if(temp.process_id == rt[i].pid){ toExecute = i; break;}
             }
             
-        
-            rt[toExecute].rt -= ts[q].ts;
+            if(rt[toExecute].rt < ts[q].ts){
+                slice_corr = ts[q].ts - rt[toExecute].rt;
+                rt[toExecute].rt = 0;
+            }else{ rt[toExecute].rt -= ts[q].ts;}
+            
             rt[toExecute].slice += 1;
             
             // dequeue
@@ -196,18 +179,18 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                     QueuePrint(ProcessQueue[q - 1]);
                     rt[toExecute].slice = 0;
                     sliceOffset[toExecute] = (time) % ts[q - 1].ts;
-                    outprint(time - ts[q].ts, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                    outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                     
                 }else{
                     // slice not used up, round robin
                     ProcessQueue[q] = EnQueue(ProcessQueue[q], dequeue);
                     sliceOffset[toExecute] = (time) % ts[q].ts;
-                    outprint(time - ts[q].ts, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                    outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                     
                 }
             }else{
                 printf("\nProcess dequeue = %d\n", dequeue.process_id);
-                outprint(time - ts[q].ts, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                 proc_completed += 1;
             }
         }
@@ -235,6 +218,10 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
             printf("\nQueue 0:");
             QueuePrint(ProcessQueue[queue_num - 3]);
             
+            // remove the break
+            // Problem occurs after period == time
+            // TODO: fix this shit
+            break;
             
         }
         
@@ -247,11 +234,11 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
 }
 
 int atIndex(Process p, int proc_num, remainingTime rt[]){
-    int h = -1;
-    for(int i = 0; i < proc_num; i++){
-        if(p.process_id == rt[i].pid){ h = i; break;}
+    int i;
+    for(i = 0; i < proc_num; i++){
+        if(p.process_id == rt[i].pid){break;}
     }
-    return h;
+    return i;
 }
 
 void s(Process *xp, Process *yp){
