@@ -148,18 +148,25 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                     //printf("go to lower queue at queue: %d\n", q - 1);
                     QueuePrint(ProcessQueue[q]);
                     
-                    ProcessQueue[q - 1] = EnQueue(ProcessQueue[q - 1], dequeue);
                     
-                    QueuePrint(ProcessQueue[q - 1]);
-                    rt[toExecute].slice = 0;
-                    //sliceOffset[toExecute] = (time) % ts[q - 1].ts;
-                    outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                   if(q > 0){
+                        ProcessQueue[q - 1] = EnQueue(ProcessQueue[q - 1], dequeue);
                     
+                        QueuePrint(ProcessQueue[q - 1]);
+                        rt[toExecute].slice = 0;
+                    
+                        outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                    }else{
+                        // wait till time == period * period_at
+                        // what if at the lowest priority queue, all process's slice are used up?
+                        rt[toExecute].slice += 1;
+                        // RR
+                        ProcessQueue[q] = EnQueue(ProcessQueue[q], dequeue);
+                        outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
+                    }
                 }else{
                     // slice not used up, round robin
                     ProcessQueue[q] = EnQueue(ProcessQueue[q], dequeue);
-                    //sliceOffset[toExecute] = (time) % ts[q].ts;
-                    printf("time = %d\n\n", time);
                     outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                     
                 }
