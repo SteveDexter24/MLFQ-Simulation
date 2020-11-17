@@ -17,6 +17,11 @@ typedef struct remainingTime {
     int slice;
 }remainingTime;
 
+typedef struct timeSlice {
+    int ts;
+    int allotment_time;
+}timeSlice;
+
 void oneQueue(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queue_num, int period);
 
 void outprint(int time_x, int time_y, int pid, int arrival_time, int remaining_time);
@@ -28,44 +33,27 @@ void s(Process *xp, Process *yp);
 void SortP(LinkedQueue *queue, int proc_num);
 
 void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queue_num, int period){
-    printf("Process number: %d\n\n", proc_num);
-    
-    
+//    printf("Process number: %d\n\n", proc_num);
     
     // remaining time array
     remainingTime *rt = (remainingTime *)malloc(proc_num * sizeof(remainingTime));
     
-    
     // slice offset, if the remaining time is less than the slice itself
-    int* sliceOffset = (int*)malloc(proc_num * sizeof(int));
+    //int* sliceOffset = (int*)malloc((proc_num + 1) * sizeof(int));
     
     for (int i = 0;i < proc_num; i++) {
         //printf("%d %d %d\n", proc[i].process_id, proc[i].arrival_time, proc[i].execution_time);
         rt[i].rt = 0;
         rt[i].slice = 0;
         rt[i].pid = proc[i].process_id;
-        sliceOffset[i] = 0;
+        //sliceOffset[i] = 0;
     }
-    
-    for (int i = 0; i < proc_num; i++) {
-        printf("%d ", rt[i].pid);
-    }
-    printf("\n\n");
-
-    printf("\nQueue number: %d\n", queue_num);
-    printf("Period: %d\n", period);
-    
-    
-    typedef struct timeSlice {
-        int ts;
-        int allotment_time;
-    }timeSlice;
     
     // time slice array
-    timeSlice* ts = (timeSlice*)malloc(queue_num * sizeof(timeSlice));
+    timeSlice *ts = (timeSlice*)malloc((queue_num + 1) * sizeof(timeSlice));
     
-    for (int i = 0;i < queue_num; i++){
-        printf("%d %d %d\n", i, ProcessQueue[i]->time_slice, ProcessQueue[i]->allotment_time);
+    for (int i = 0; i < queue_num; i++){
+//        printf("%d %d %d\n", i, ProcessQueue[i]->time_slice, ProcessQueue[i]->allotment_time);
         ts[i].ts = ProcessQueue[i]->time_slice;
         ts[i].allotment_time = ProcessQueue[i]->allotment_time;
     }
@@ -75,24 +63,40 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
     bool hold_slice = false;
     int hold_by = 0;
     int q = queue_num - 1;
+    int process_entered = 0;
     
     do {
+        
+        //printf("time = %d", time);
+        
+        for(int i = 0; i < proc_num; i++){
+            if(time == proc[i].arrival_time){
+//                printf("Enqueue at time = %d\n", time);
+                ProcessQueue[queue_num - 1] = EnQueue(ProcessQueue[queue_num - 1], proc[i]);
+                rt[i].rt = proc[i].execution_time;
+                process_entered += 1;
+            }
+        }
         
         int slice_corr = 0;
   
         if (hold_slice == false) {
             
+            int count = 0;
+            
             q = queue_num - 1;
-            // works
             for(int i = 0; i < queue_num; i++){
                 if(!IsEmptyQueue(ProcessQueue[i])){
                     q = i;
+                }else{
+                    count++;
                 }
             }
                 
             Process front;
             
-            if(!IsEmptyQueue(ProcessQueue[q])){front = FrontQueue(ProcessQueue[q]);}
+            //if(!IsEmptyQueue(ProcessQueue[q])){
+                front = FrontQueue(ProcessQueue[q]);
 
                 int index = atIndex(front, proc_num, rt);
                 
@@ -100,21 +104,14 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                     hold_by = rt[index].rt;
                 }else if(period * period_at < ts[q].ts + time){
                     hold_by = period - time + 1;
-                    printf("Hold by = %d\n\n\n\n", time);
                     p_time = hold_by;
                 }else{
                     hold_by = ts[q].ts;
                 }
                 hold_slice = true;
+           // }
         }
         
-        for(int i = 0; i < proc_num; i++){
-            if(time == proc[i].arrival_time){
-                ProcessQueue[queue_num - 1] = EnQueue(ProcessQueue[queue_num - 1], proc[i]);
-                rt[i].rt = proc[i].execution_time;
-            }
-        }
-
         if(hold_slice == true){
             hold_by -= 1;
         }
@@ -165,18 +162,18 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
                     
                     QueuePrint(ProcessQueue[q - 1]);
                     rt[toExecute].slice = 0;
-                    sliceOffset[toExecute] = (time) % ts[q - 1].ts;
+                    //sliceOffset[toExecute] = (time) % ts[q - 1].ts;
                     outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                     
                 }else{
                     // slice not used up, round robin
                     ProcessQueue[q] = EnQueue(ProcessQueue[q], dequeue);
-                    sliceOffset[toExecute] = (time) % ts[q].ts;
+                    //sliceOffset[toExecute] = (time) % ts[q].ts;
                     outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                     
                 }
             }else{
-                printf("\nProcess dequeue = %d\n", dequeue.process_id);
+//                printf("\nProcess dequeue = %d\n", dequeue.process_id);
                 outprint(time - ts[q].ts + slice_corr, time, dequeue.process_id, dequeue.arrival_time, rt[toExecute].rt);
                 proc_completed += 1;
             }
@@ -196,7 +193,14 @@ void scheduler(Process* proc, LinkedQueue** ProcessQueue, int proc_num, int queu
             }
             
             QueuePrint(ProcessQueue[queue_num - 1]);
-            SortP(ProcessQueue[queue_num - 1], proc_num - proc_completed);
+//            printf("\n\n proc_completed = %d \n\n", proc_completed);
+            SortP(ProcessQueue[queue_num - 1], process_entered - proc_completed);
+            
+//            printf("\nQueues after sort\n");
+//            for(int i = 0; i < queue_num; i++){
+//                QueuePrint(ProcessQueue[queue_num - 1 - i]);
+//            }
+//            printf("\n");
             period_at += 1;
         }
         
@@ -226,7 +230,8 @@ void SortP(LinkedQueue *queue, int proc_num){
     Process *a = (Process *)malloc(sizeof(Process) * proc_num);
     //int *a = (int *)malloc(sizeof(int) * proc_num);
     for(int i = 0; i < proc_num; i++){
-        a[i] = DeQueue(queue);
+        if(!IsEmptyQueue(queue))
+            a[i] = DeQueue(queue);
     }
 
     for(int i = 0; i < proc_num - 1; i++){
